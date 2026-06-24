@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GO Group — Number Generator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --coral: #E8614A;
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --gray: #1a1a1a;
+      --muted: #888888;
+      --border: rgba(255,255,255,0.12);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--black);
+      color: var(--white);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 48px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      position: relative;
+    }
+
+    .logo-text {
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--white);
+      letter-spacing: -0.01em;
+    }
+
+    .nav-label {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* MAIN */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 24px;
+      gap: 56px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* subtle background grid */
+    main::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* coral glow blob */
+    main::after {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(232,97,74,0.12) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      border-radius: 50%;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* RING + NUMBER */
+    .ring-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-outer {
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: border-color 0.4s ease;
+    }
+
+    .ring-outer.active {
+      border-color: rgba(232,97,74,0.5);
+    }
+
+    .ring-inner {
+      width: 210px;
+      height: 210px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--gray);
+      transition: background 0.4s ease, border-color 0.4s ease;
+    }
+
+    .ring-outer.active .ring-inner {
+      background: #1e0e0b;
+      border-color: rgba(232,97,74,0.3);
+    }
+
+    .number {
+      font-size: 96px;
+      font-weight: 300;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--white);
+      transition: color 0.3s ease, opacity 0.1s;
+      min-width: 120px;
+      text-align: center;
+    }
+
+    .number.flash { opacity: 0.4; }
+    .ring-outer.active .number { color: var(--coral); }
+
+    /* corner accent marks */
+    .ring-mark {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--coral);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .ring-outer.active .ring-mark { opacity: 1; }
+    .ring-mark.top    { top: -3px;    left: 50%; transform: translateX(-50%); }
+    .ring-mark.right  { right: -3px;  top: 50%;  transform: translateY(-50%); }
+    .ring-mark.bottom { bottom: -3px; left: 50%; transform: translateX(-50%); }
+    .ring-mark.left   { left: -3px;   top: 50%;  transform: translateY(-50%); }
+
+    /* BUTTON */
+    .generate-btn {
+      position: relative;
+      z-index: 1;
+      padding: 16px 52px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--white);
+      background: var(--coral);
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 0 0 0 rgba(232,97,74,0);
+    }
+
+    .generate-btn:hover {
+      background: #d4533e;
+      box-shadow: 0 8px 32px rgba(232,97,74,0.35);
+    }
+
+    .generate-btn:active { transform: scale(0.97); }
+    .generate-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* HISTORY */
+    .history-section {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 4px;
+    }
+
+    .history-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .history-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .history-count {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .history-count span {
+      color: var(--coral);
+      font-weight: 500;
+    }
+
+    .history-scroll {
+      width: 100%;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 4px 2px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+
+    .history-scroll::-webkit-scrollbar { width: 4px; }
+    .history-scroll::-webkit-scrollbar-track { background: transparent; }
+    .history-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .history-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      min-height: 38px;
+    }
+
+    .chip {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--muted);
+      animation: pop 0.22s cubic-bezier(0.34,1.56,0.64,1);
+      flex-shrink: 0;
+    }
+
+    .chip.latest {
+      border-color: var(--coral);
+      color: var(--coral);
+    }
+
+    @keyframes pop {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    .clear-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0;
+      letter-spacing: 0.04em;
+      display: none;
+    }
+    .clear-btn:hover { color: var(--white); }
+
+    /* FOOTER */
+    footer {
+      padding: 20px 48px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-text {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .range-badge {
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 14px;
+      letter-spacing: 0.06em;
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: 20px 24px; }
+      footer { padding: 16px 24px; }
+      .ring-outer { width: 220px; height: 220px; }
+      .ring-inner { width: 174px; height: 174px; }
+      .number { font-size: 76px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a class="logo" href="#">
+      <!-- GO Group Logo SVG -->
+      <svg class="logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" fill="#E8614A"/>
+        <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+              font-family="Inter, sans-serif" font-weight="600" font-size="22"
+              fill="white">G</text>
+      </svg>
+      <span class="logo-text">GO Group</span>
+    </a>
+    <span class="nav-label">Number Generator</span>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+    <p class="eyebrow">New Industry Platform</p>
+
+    <div class="ring-wrap">
+      <div class="ring-outer" id="ring">
+        <div class="ring-mark top"></div>
+        <div class="ring-mark right"></div>
+        <div class="ring-mark bottom"></div>
+        <div class="ring-mark left"></div>
+        <div class="ring-inner">
+          <span class="number" id="numDisplay">—</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="genBtn" onclick="generate()">Generate number</button>
+
+    <div class="history-section">
+      <div class="history-header">
+        <span class="history-title">Previous draws</span>
+        <div class="history-meta">
+          <span class="history-count" id="histCount" style="display:none">Total: <span id="countNum">0</span></span>
+          <button class="clear-btn" id="clearBtn" onclick="clearAll()">Clear history</button>
+        </div>
+      </div>
+      <div class="history-scroll" id="histScroll" style="display:none">
+        <div class="history-chips" id="chips"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <span class="footer-text">Building legacies together</span>
+    <span class="range-badge">1 – 75</span>
+  </footer>
+
+  <script>
+    const history = [];
+
+    function generate() {
+      const btn = document.getElementById('genBtn');
+      const ring = document.getElementById('ring');
+      const display = document.getElementById('numDisplay');
+      btn.disabled = true;
+
+      let ticks = 0;
+      const maxTicks = 18;
+      const iv = setInterval(() => {
+        display.textContent = Math.floor(Math.random() * 75) + 1;
+        display.classList.toggle('flash');
+        ticks++;
+        if (ticks >= maxTicks) {
+          clearInterval(iv);
+          const result = Math.floor(Math.random() * 75) + 1;
+          display.textContent = result;
+          display.classList.remove('flash');
+          ring.classList.add('active');
+          setTimeout(() => ring.classList.remove('active'), 600);
+          addHistory(result);
+          btn.disabled = false;
+        }
+      }, 55);
+    }
+
+    function addHistory(n) {
+      history.unshift(n);
+      renderChips();
+    }
+
+    function renderChips() {
+      const wrap = document.getElementById('chips');
+      const clearBtn = document.getElementById('clearBtn');
+      const histCount = document.getElementById('histCount');
+      const countNum = document.getElementById('countNum');
+      const histScroll = document.getElementById('histScroll');
+      wrap.innerHTML = '';
+      history.forEach((n, i) => {
+        const c = document.createElement('div');
+        c.className = 'chip' + (i === 0 ? ' latest' : '');
+        c.textContent = n;
+        wrap.appendChild(c);
+      });
+      const hasHistory = history.length > 0;
+      clearBtn.style.display = hasHistory ? 'block' : 'none';
+      histCount.style.display = hasHistory ? 'inline' : 'none';
+      histScroll.style.display = hasHistory ? 'block' : 'none';
+      countNum.textContent = history.length;
+      // scroll to top so latest is always visible
+      histScroll.scrollTop = 0;
+    }
+
+    function clearAll() {
+      history.length = 0;
+      document.getElementById('numDisplay').textContent = '—';
+      renderChips();
+    }
+  </script>
+</body>
+</html>
