@@ -327,6 +327,59 @@ body {
 }
 
 /* Domain Overview */
+/* ── Domain focus chip selector ── */
+.domain-chips-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 28px;
+  padding: 20px 28px;
+}
+
+.domain-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.domain-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 16px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.domain-chip:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.domain-chip.active {
+  background: var(--green-dim);
+  border-color: var(--green-border);
+  color: var(--green);
+}
+
+/* small secondary label inside mode-chip for domain focus */
+.mode-chip-domain {
+  display: inline-block;
+  background: var(--green-dim);
+  border-radius: 10px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+  padding: 1px 8px;
+  vertical-align: middle;
+}
+
 .domain-overview {
   background: var(--surface);
   border: 1px solid var(--border);

@@ -17,11 +17,13 @@ const DOMAINS = {
 
 let state = {
   mode: null,
+  domain: null,      // null = all domains; string = single-domain focus
   questions: [],
   currentIndex: 0,
   answers: {},       // { questionIndex: optionIndex | -1 for skip }
   timerInterval: null,
   timeLeft: EXAM_SECONDS,
+  warningAt: WARNING_SECONDS,
   warned: false,
 };
 
@@ -59,6 +61,12 @@ function setHTML(html) {
    QUESTION SELECTION — stratified random
    ================================================================ */
 function pickQuestions() {
+  if (state.domain) {
+    const target = Math.round(TOTAL_Q * DOMAINS[state.domain]);
+    const pool = shuffle(window.QUESTIONS.filter(q => q.domain === state.domain));
+    return pool.slice(0, Math.min(target, pool.length));
+  }
+
   const selected = [];
   const used = new Set();
 
@@ -96,6 +104,19 @@ function renderHome() {
     </div>
   `).join('');
 
+  const scopeWeight = state.domain ? DOMAINS[state.domain] : null;
+  const qCount = state.domain ? Math.round(TOTAL_Q * scopeWeight) : TOTAL_Q;
+  const examMins = state.domain ? Math.round(90 * scopeWeight) : 90;
+  const qLabel = state.domain ? `${qCount} questions · ${esc(state.domain)}` : '60 stratified random questions';
+  const timerLabel = state.domain ? `${examMins}-minute countdown` : '90-minute countdown';
+
+  const chipsHTML = [
+    `<button class="domain-chip${!state.domain ? ' active' : ''}" onclick="setDomain(null)">All Domains</button>`,
+    ...Object.keys(DOMAINS).map(d =>
+      `<button class="domain-chip${state.domain === d ? ' active' : ''}" onclick="setDomain('${d}')">${esc(d)}</button>`
+    )
+  ].join('');
+
   setHTML(`
     <div class="screen home-screen">
       <header class="app-header">
@@ -124,6 +145,11 @@ function renderHome() {
           <p class="home-subtitle">Practice with 200 exam-quality questions across all official domains</p>
         </div>
 
+        <div class="domain-chips-section">
+          <p class="section-label">Focus Domain</p>
+          <div class="domain-chips">${chipsHTML}</div>
+        </div>
+
         <div class="mode-cards">
           <div class="mode-card practice-card">
             <span class="mode-card-tag tag-practice">Study</span>
@@ -131,7 +157,7 @@ function renderHome() {
             <h2>Practice Mode</h2>
             <p>Instant answer feedback with full explanations for every option</p>
             <ul class="mode-features">
-              <li>60 stratified random questions</li>
+              <li>${qLabel}</li>
               <li>Immediate correct / wrong feedback</li>
               <li>Explanation for each answer option</li>
               <li>Running score visible throughout</li>
@@ -145,8 +171,8 @@ function renderHome() {
             <h2>Exam Mode</h2>
             <p>Authentic exam simulation with countdown timer and end-of-session scoring</p>
             <ul class="mode-features">
-              <li>60 stratified random questions</li>
-              <li>90-minute countdown timer</li>
+              <li>${qLabel}</li>
+              <li>${timerLabel} timer</li>
               <li>No hints or feedback during exam</li>
               <li>Full review and analytics at the end</li>
             </ul>
@@ -171,11 +197,19 @@ function startSession(mode) {
   state.questions = pickQuestions();
   state.currentIndex = 0;
   state.answers = {};
-  state.timeLeft = EXAM_SECONDS;
+
+  const weight = state.domain ? DOMAINS[state.domain] : 1;
+  state.timeLeft = Math.round(EXAM_SECONDS * weight);
+  state.warningAt = Math.round(WARNING_SECONDS * weight);
   state.warned = false;
 
   if (mode === 'exam') startTimer();
   renderQuestion(0);
+}
+
+function setDomain(name) {
+  state.domain = name || null;
+  renderHome();
 }
 
 /* ================================================================
@@ -198,7 +232,7 @@ function renderQuestion(index) {
     headerRight += `<span class="score-chip">${correctCount} / ${answeredCount}</span>`;
   }
   if (state.mode === 'exam') {
-    headerRight += `<span class="timer-chip${state.timeLeft <= WARNING_SECONDS ? ' warning' : ''}" id="timer-chip">${fmt(state.timeLeft)}</span>`;
+    headerRight += `<span class="timer-chip${state.timeLeft <= state.warningAt ? ' warning' : ''}" id="timer-chip">${fmt(state.timeLeft)}</span>`;
   }
 
   // Options
@@ -256,7 +290,7 @@ function renderQuestion(index) {
       <header class="question-header">
         <button class="back-btn" onclick="confirmHome()">← <span>Home</span></button>
         <div class="header-center">
-          <span class="mode-chip">${state.mode === 'practice' ? '📚 Practice' : '🎯 Exam'}</span>
+          <span class="mode-chip">${state.mode === 'practice' ? '📚 Practice' : '🎯 Exam'}${state.domain ? `<span class="mode-chip-domain">${esc(state.domain)}</span>` : ''}</span>
           <span class="q-counter">Question ${index + 1} of ${total}</span>
         </div>
         <div class="header-right">${headerRight}</div>
@@ -317,10 +351,10 @@ function startTimer() {
     const chip = document.getElementById('timer-chip');
     if (chip) {
       chip.textContent = fmt(state.timeLeft);
-      if (state.timeLeft <= WARNING_SECONDS) chip.classList.add('warning');
+      if (state.timeLeft <= state.warningAt) chip.classList.add('warning');
     }
 
-    if (!state.warned && state.timeLeft <= WARNING_SECONDS) {
+    if (!state.warned && state.timeLeft <= state.warningAt) {
       state.warned = true;
       showToast('⚠️  10 minutes remaining!', true);
     }
@@ -473,7 +507,7 @@ function renderResults() {
     <div class="screen results-screen">
       <header class="results-header">
         <button class="back-btn" onclick="renderHome()">← <span>Home</span></button>
-        <span class="mode-chip">Results — ${state.mode === 'practice' ? '📚 Practice' : '🎯 Exam'}</span>
+        <span class="mode-chip">Results — ${state.mode === 'practice' ? '📚 Practice' : '🎯 Exam'}${state.domain ? `<span class="mode-chip-domain">${esc(state.domain)}</span>` : ''}</span>
         <div></div>
       </header>
 
