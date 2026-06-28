@@ -1124,6 +1124,566 @@ window.QUESTIONS = [
       "Incorrect. The Detection Studio Launchpad shows ATT&CK coverage gaps in detections; the Suppression Audit shows suppressed notables. Neither confirms log source ingestion continuity for compliance.",
       "Incorrect. The Incident Review queue shows open security alerts; the notable event timeline shows when events were created. Neither provides evidence about data pipeline health for compliance auditing."
     ]
+  },
+
+  /* ============================================================
+     DETECTION ENGINEERING  (questions 25–36)
+     ============================================================ */
+  {
+    id: "de-025",
+    domain: "Detection Engineering",
+    question: "Which Splunk Enterprise Security supporting add-on is the primary component responsible for ingesting, parsing, and normalizing external threat intelligence feeds into KV store collections for use in correlation searches?",
+    options: [
+      "SA-NetworkProtection",
+      "SA-ThreatIntelligence",
+      "TA-ThreatIntel",
+      "SA-ESSIntel"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. SA-NetworkProtection provides firewall and network-based detection content for Splunk ES; it does not manage threat intelligence feed ingestion or KV store population.",
+      "Correct. SA-ThreatIntelligence is the Splunk ES supporting add-on that downloads, parses, and normalizes threat intelligence feeds, then populates KV store collections such as ip_intel, domain_intel, and file_intel that are queried by threat-generation searches to match against live events.",
+      "Incorrect. TA-ThreatIntel is not an official Splunk ES add-on name; it does not exist as a real component in the ES framework.",
+      "Incorrect. SA-ESSIntel is not a real Splunk ES add-on name; it is a fictional distractor."
+    ]
+  },
+  {
+    id: "de-026",
+    domain: "Detection Engineering",
+    question: "A detection engineer wants to annotate a correlation search (that does not use the Risk data model) with MITRE ATT&CK technique T1059 so the technique tag appears in Incident Review. What is the correct SPL statement to append at the end of the search?",
+    options: [
+      "| eval annotations.mitre_attack.mitre_technique_id=\"T1059\"",
+      "| eval mitre_attack_id=\"T1059\"",
+      "| set annotations.mitre_attack.mitre_technique_id=\"T1059\"",
+      "| eval field.mitre_attack.technique=\"T1059\""
+    ],
+    correct: 0,
+    explanations: [
+      "Correct. The ES annotation framework recognizes the dot-notation path annotations.mitre_attack.mitre_technique_id when set via eval. Incident Review and Mission Control read this field to display the mapped ATT&CK technique alongside the notable event.",
+      "Incorrect. mitre_attack_id is not a recognized ES annotation field; it will not surface the technique in Incident Review because the framework expects the specific annotations.mitre_attack.mitre_technique_id path.",
+      "Incorrect. set is not a valid SPL command. The correct command for assigning a field value in the Splunk Processing Language is eval.",
+      "Incorrect. The annotation namespace uses annotations.mitre_attack, not field.mitre_attack; this dotted path is not recognized by the ES annotation framework and would create an unrecognized field."
+    ]
+  },
+  {
+    id: "de-027",
+    domain: "Detection Engineering",
+    question: "A security appliance buffers logs during a network outage and forwards them in bulk when connectivity is restored, causing events to arrive at the Splunk indexer hours after they occurred. A correlation search with a 15-minute lookback window misses these events. What is the correct approach to ensure the detection catches them?",
+    options: [
+      "Increase the search's cron frequency to every 1 minute",
+      "Configure the correlation search to use event time (_time) rather than index time, with an appropriately extended lookback window",
+      "Enable data model acceleration on the relevant CIM data model",
+      "Increase the throttle period to 24 hours"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Increasing cron frequency still applies the lookback window relative to the current clock; events indexed hours late still fall outside the window regardless of how often the search runs.",
+      "Correct. Event time (_time) reflects when the event actually occurred, not when it was indexed. By configuring the search time range to use _time and extending the lookback to cover the potential delay window, the detection catches late-arriving events that were generated during the outage but indexed after the normal 15-minute window had passed.",
+      "Incorrect. Data model acceleration builds TSIDX summaries to speed up queries; it does not change how the search time window is evaluated or expand coverage to late-arriving events.",
+      "Incorrect. The throttle period controls how long duplicate notable events for the same entity are suppressed after one fires; it has no effect on what time range the search covers or whether late-arriving events are detected."
+    ]
+  },
+  {
+    id: "de-028",
+    domain: "Detection Engineering",
+    question: "A detection engineer is building a search to identify brute-force attacks against Active Directory accounts. Which Windows Security Event Code directly indicates that a user account has been locked out due to repeated failed authentication attempts?",
+    options: [
+      "4624 — An account was successfully logged on",
+      "4648 — A logon was attempted using explicit credentials",
+      "4740 — A user account was locked out",
+      "4776 — The computer attempted to validate the credentials for an account"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. Event 4624 records successful authentication events. While useful for detecting successful unauthorized access, it does not indicate account lockout resulting from repeated failures.",
+      "Incorrect. Event 4648 records logons using explicitly specified credentials (e.g., RunAs or Pass-the-Ticket); it is not related to account lockout from failed password attempts.",
+      "Correct. Windows Security Event 4740 is generated on the domain controller when a user account is locked out due to too many failed authentication attempts. A high count of 4740 events grouped by user is a strong indicator of a brute-force or password spray attack.",
+      "Incorrect. Event 4776 records NTLM credential validation attempts on a domain controller; while useful for detecting NTLM-based attacks, it records individual validation attempts and does not directly signal account lockout."
+    ]
+  },
+  {
+    id: "de-029",
+    domain: "Detection Engineering",
+    question: "A CIM-based correlation search is returning results from non-security indexes, adding unwanted noise. The data model is configured and accelerated. Which part of the data model configuration should the engineer review to restrict the search to security-relevant indexes?",
+    options: [
+      "The data model's dataset hierarchy definition",
+      "The data model's constraint macro",
+      "The correlation search's alert condition threshold",
+      "The Universal Forwarder's inputs.conf monitor stanzas"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The dataset hierarchy defines parent-child relationships between datasets within the model (e.g., Authentication > Default Authentication); it does not control which indexes contribute events to the model.",
+      "Correct. The constraint macro in a CIM data model's root event definition (e.g., `cim_authentication_indexes`) contains the index filter that determines which indexed data populates the model. Updating this macro to specify only security-relevant indexes scopes the data model — and all searches derived from it — to the correct data.",
+      "Incorrect. The alert condition controls the minimum result count at which a correlation search fires; it does not filter which indexes the underlying search queries.",
+      "Incorrect. inputs.conf on Universal Forwarders configures which files or network ports are monitored for data collection; it does not affect how a data model search selects which indexes to query at search time."
+    ]
+  },
+  {
+    id: "de-030",
+    domain: "Detection Engineering",
+    question: "Which SPL command provides the highest query performance when running aggregate statistics against a CIM data model with acceleration enabled in Splunk Enterprise Security?",
+    options: [
+      "| datamodel Authentication search",
+      "| pivot Authentication All_Authentication count",
+      "| tstats count FROM datamodel=Authentication WHERE nodename=Authentication BY src",
+      "| from datamodel:Authentication.Authentication"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. The datamodel command searches the data model but does not take full advantage of the TSIDX acceleration summaries in the same optimized way as tstats; it also returns verbose metadata output.",
+      "Incorrect. The pivot command provides a simplified interface and can leverage acceleration, but it generates less flexible SPL and is generally not the preferred option for high-performance aggregate searches in correlation searches.",
+      "Correct. tstats directly queries the TSIDX acceleration summaries built by data model acceleration, providing the fastest aggregate search performance (count, sum, dc, etc.) across large datasets. It is the recommended command for CIM-based correlation searches in Splunk ES.",
+      "Incorrect. The `from datamodel:` syntax is primarily used in dashboard panels and pivots; tstats remains the preferred and highest-performance command for aggregate queries in production correlation searches."
+    ]
+  },
+  {
+    id: "de-031",
+    domain: "Detection Engineering",
+    question: "In Splunk ES Risk-Based Alerting, what happens to a risk object's accumulated risk score over time without new matching risk events?",
+    options: [
+      "The score increases automatically based on new threat intelligence feed updates",
+      "The score remains permanently until an analyst manually resets it in the Risk Analysis dashboard",
+      "The score decays naturally as individual risk events age out of the Risk Index retention window",
+      "The score is archived to a summary index after 24 hours to free index space"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. Threat intelligence feed updates may trigger new risk events if they match current activity, but they do not increase an existing accumulated score without a corresponding new risk event being generated.",
+      "Incorrect. Risk events stored in the Risk Index have a retention period like any other index. As events age out, the aggregated score recalculated by risk incident rules decreases naturally without manual intervention.",
+      "Correct. The Risk Index has a configurable retention window. As individual risk events age beyond the retention period, they expire from the index, and the aggregated risk score for the associated risk object decreases proportionally — providing built-in temporal decay that prevents stale activity from indefinitely elevating a risk object's score.",
+      "Incorrect. Risk events are not automatically archived to a summary index; they are removed as the index retention window expires, following the same lifecycle as all other Splunk indexed data."
+    ]
+  },
+  {
+    id: "de-032",
+    domain: "Detection Engineering",
+    question: "In Splunk ES Detection Studio, a detection is marked as 'Development' status. What does this mean compared to 'Production' status?",
+    options: [
+      "'Development' detections run on a real-time schedule; 'Production' detections run on a historical schedule",
+      "'Development' detections are visible only to admins; 'Production' detections are visible to all analysts",
+      "'Development' detections are being authored or tested and are not yet enabled in production; 'Production' detections are enabled, scheduled, and generating notables in Incident Review",
+      "'Development' detections use raw index searches; 'Production' detections require accelerated data models"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. The real-time vs. historical distinction refers to the search type, not the content lifecycle status; both 'Development' and 'Production' detections typically use scheduled historical searches.",
+      "Incorrect. Content visibility in Detection Studio is controlled by role-based access control, not by the content lifecycle status.",
+      "Correct. 'Development' status means the detection is in the authoring, refinement, or testing stage — it is not deployed to the production scheduler and does not generate notable events for analysts. 'Production' status means the detection has been promoted, enabled, and is actively running on its configured cron schedule, generating findings in Incident Review.",
+      "Incorrect. The choice of raw vs. accelerated search is determined by the SPL written in the detection, not by its lifecycle status. Both statuses can use either approach."
+    ]
+  },
+  {
+    id: "de-033",
+    domain: "Detection Engineering",
+    question: "When Splunk User Behavior Analytics (UBA) is integrated with Splunk Enterprise Security, what primary type of detection does UBA contribute?",
+    options: [
+      "Signature-based detections matching known malware file hashes",
+      "Rule-based threshold detections counting specific event types per user",
+      "Behavioral anomaly detections based on machine learning models of user and entity activity",
+      "Real-time packet-level network intrusion detections"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. Hash-based malware detection is a signature matching use case handled by Splunk ES threat intelligence against endpoint data; UBA does not perform signature matching.",
+      "Incorrect. Rule-based threshold detections are the domain of traditional correlation searches in Splunk ES. UBA's distinct value is its unsupervised machine learning approach that does not rely on predefined thresholds.",
+      "Correct. Splunk UBA uses machine learning to build behavioral baselines for users and entities, then identifies statistically significant deviations — such as abnormal login hours, unusual data access volumes, or atypical lateral movement patterns — that rule-based detections would miss. These threats are surfaced as notables in Splunk ES via the UBA integration.",
+      "Incorrect. Packet-level network analysis is the domain of network detection tools such as Zeek or Suricata. UBA operates on behavioral metadata (logins, file access, network flows at the session level), not raw packet captures."
+    ]
+  },
+  {
+    id: "de-034",
+    domain: "Detection Engineering",
+    question: "A security team wants to build detections for web application attacks (SQL injection, directory traversal) using web proxy and WAF logs. Which CIM data model should be the foundation for these detections?",
+    options: [
+      "Network Traffic data model",
+      "Authentication data model",
+      "Web data model",
+      "Intrusion Detection data model"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. The Network Traffic data model normalizes connection-level fields (src/dest IP, port, bytes, protocol); it does not include HTTP-specific fields like uri_path, http_method, status codes, or user-agent needed for web attack detections.",
+      "Incorrect. The Authentication data model covers login and credential events; it has no relevance to HTTP-level web application attack patterns.",
+      "Correct. The CIM Web data model normalizes HTTP traffic fields from proxies, WAFs, and web servers — including url, uri_path, http_method, http_user_agent, status, bytes_in, bytes_out — making it the correct foundation for detecting web application attacks like SQL injection and directory traversal.",
+      "Incorrect. The Intrusion Detection data model normalizes IDS/IPS alert events (signatures, categories, severity); while it may capture some web attack signatures, the raw HTTP log fields needed to build custom web attack logic live in the Web data model."
+    ]
+  },
+  {
+    id: "de-035",
+    domain: "Detection Engineering",
+    question: "During detection development in Splunk, an engineer needs to extract a username from a custom log field `raw_message` containing text like 'User=jdoe connected'. Which SPL command correctly extracts 'jdoe' into a new field named `extracted_user`?",
+    options: [
+      "| eval extracted_user=substr(raw_message, 6, 4)",
+      "| rex field=raw_message \"User=(?<extracted_user>\\w+)\"",
+      "| lookup users raw_message OUTPUT extracted_user",
+      "| rename raw_message AS extracted_user"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. eval substr() extracts a fixed-position substring by character offset; it breaks for any username that differs in length or position from the hardcoded values — making it fragile and unfit for production detection use.",
+      "Correct. The rex command applies a named capture group regex to extract values from a free-text field at search time. The pattern User=(?<extracted_user>\\w+) matches the literal 'User=' and captures the following word characters into extracted_user — reliably handling varying username lengths.",
+      "Incorrect. The lookup command enriches events by matching an existing field against a lookup table to retrieve additional fields; it cannot extract a substring or pattern match from within a field's text value.",
+      "Incorrect. rename changes the name of an existing field without modifying its value; it does not parse or extract content from within a field's string."
+    ]
+  },
+  {
+    id: "de-036",
+    domain: "Detection Engineering",
+    question: "A detection engineer is tuning a correlation search that generates too many false positives. Which statement best describes the core trade-off between lowering versus raising the alert threshold?",
+    options: [
+      "Lowering the threshold reduces both false positives and false negatives simultaneously",
+      "Lowering the threshold increases false positives and reduces false negatives; raising it reduces false positives but increases false negatives",
+      "Threshold settings affect only how frequently the search runs, not the quality of results",
+      "Raising the threshold always improves detection quality and should always be preferred"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Lowering the threshold increases sensitivity, which captures more true positives but also lets in more false positives. It does not simultaneously reduce both error types.",
+      "Correct. This describes the fundamental precision-recall trade-off in detection engineering. A lower threshold (higher sensitivity) catches more true attacks but also generates more false positives. A higher threshold (higher specificity) reduces false-positive noise but risks missing real attacks — increasing false negatives. Tuning requires balancing both in the context of the specific environment and use case.",
+      "Incorrect. Threshold settings directly control the minimum result count or statistical value at which the alert fires, which has a direct impact on both false positive and false negative rates — not merely on run frequency.",
+      "Incorrect. A high threshold is appropriate in noisy environments where false positive volume is the primary concern, but raising the threshold indefinitely will eventually cause real attacks to go undetected. There is no universally 'always preferred' direction; tuning depends on context."
+    ]
+  },
+
+  /* ============================================================
+     SECURITY PROCESSES AND PROGRAMS  (questions 13–18)
+     ============================================================ */
+  {
+    id: "sp-013",
+    domain: "Security Processes and Programs",
+    question: "Which security architecture model is most effective at limiting lateral movement by requiring continuous verification of every user and device request regardless of network location?",
+    options: [
+      "Defense in Depth",
+      "Zero Trust",
+      "Lockheed Martin Cyber Kill Chain",
+      "MITRE ATT&CK framework"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Defense in Depth is a layered security strategy using multiple controls across different tiers; while it adds obstacles for an attacker, it does not inherently prevent lateral movement once a credential is compromised within the trusted network.",
+      "Correct. Zero Trust operates on the principle of 'never trust, always verify' — enforcing continuous authentication and authorization for every resource request regardless of whether the user is inside or outside the network perimeter. Microsegmentation and least-privilege access enforcement make lateral movement significantly harder even after initial compromise.",
+      "Incorrect. The Cyber Kill Chain is a threat modeling framework that describes stages of an attack; it helps analysts understand adversary behavior but is not a security architecture model that prevents lateral movement.",
+      "Incorrect. MITRE ATT&CK is a knowledge base of adversary tactics and techniques used for detection engineering and threat modeling; it is a reference framework, not a deployable security architecture."
+    ]
+  },
+  {
+    id: "sp-014",
+    domain: "Security Processes and Programs",
+    question: "A detection engineer wants to identify coverage gaps against specific MITRE ATT&CK techniques before writing new correlation searches, using a threat-defense-informed strategy. Which Splunk application is best suited for this guided use case development?",
+    options: [
+      "Enterprise Security Content Update (ESCU) app",
+      "Splunk Security Essentials (SSE) app",
+      "Splunk Add-on for MITRE ATT&CK Navigator",
+      "Splunk Add-on for Microsoft Windows"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. ESCU delivers pre-built detection content; it does not provide an interactive interface for exploring which ATT&CK techniques are covered or for guided use case development workflows.",
+      "Correct. The Splunk Security Essentials app provides an interactive experience for cross-referencing detections with the MITRE ATT&CK framework. It shows which techniques have coverage, identifies gaps, and guides engineers through analytic story development — making it the ideal tool for a threat-defense-informed detection strategy.",
+      "Incorrect. While Splunk offers ATT&CK visualization, 'Splunk Add-on for MITRE ATT&CK Navigator' is not the designated app for guided use case development and coverage gap analysis; that role belongs to the Splunk Security Essentials app.",
+      "Incorrect. The Splunk Add-on for Microsoft Windows is a technology add-on for collecting and normalizing Windows event logs; it does not provide ATT&CK coverage analysis or detection guidance."
+    ]
+  },
+  {
+    id: "sp-015",
+    domain: "Security Processes and Programs",
+    question: "A new security engineer wants to understand which data sources are available in their Splunk environment and how they map to CIM data models and security use cases before building new detections. Which Splunk component best provides this baseline inventory?",
+    options: [
+      "Enterprise Security Content Update (ESCU)",
+      "Enterprise Security Data Library (ESDL)",
+      "Splunk Security Essentials Analytic Stories",
+      "Splunk CIM Add-on"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. ESCU provides pre-built detection content such as correlation searches and analytic stories; it does not inventory which data sources are present in the environment or assess their coverage readiness.",
+      "Correct. The Enterprise Security Data Library (ESDL) catalogs the data sources available in a Splunk ES environment, showing how each maps to CIM data models and security use cases. It gives engineers a baseline of what data is available and highlights where detection gaps exist due to missing or incomplete data sources.",
+      "Incorrect. SSE Analytic Stories provide detection guidance organized around threat scenarios; they do not specifically inventory or baseline the data sources currently ingested in the Splunk environment.",
+      "Incorrect. The Splunk CIM Add-on provides data model schema definitions and normalization configuration; it does not provide a runtime inventory or coverage assessment of data sources that are actively sending data."
+    ]
+  },
+  {
+    id: "sp-016",
+    domain: "Security Processes and Programs",
+    question: "Which SOC metric measures the average elapsed time from when a security incident begins to when it is first detected by the security operations team?",
+    options: [
+      "Mean Time to Respond (MTTR)",
+      "Mean Time to Detect (MTTD)",
+      "Mean Time to Contain (MTTC)",
+      "Mean Time Between Failures (MTBF)"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. MTTR (Mean Time to Respond) measures the elapsed time from the point of detection through the completion of response and remediation actions — it begins where MTTD ends.",
+      "Correct. MTTD (Mean Time to Detect) is the average time between when a security incident starts and when the SOC first identifies it, typically through a SIEM alert or investigation finding. Reducing MTTD is a primary goal of detection engineering and data source coverage improvements.",
+      "Incorrect. MTTC (Mean Time to Contain) measures how long it takes to isolate and stop the spread of an incident after it has been detected; it is a response-phase metric, not a detection speed metric.",
+      "Incorrect. MTBF (Mean Time Between Failures) is an IT reliability metric measuring the average operating time between system failures; it is an infrastructure reliability KPI, not a security operations metric."
+    ]
+  },
+  {
+    id: "sp-017",
+    domain: "Security Processes and Programs",
+    question: "Which sequence correctly represents the phases of a formalized cyber threat intelligence (CTI) lifecycle?",
+    options: [
+      "Collect → Analyze → Process → Disseminate → Feedback",
+      "Plan → Collect → Process → Analyze → Disseminate → Feedback",
+      "Analyze → Collect → Disseminate → Plan → Feedback",
+      "Disseminate → Collect → Process → Analyze → Plan"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. This sequence omits the initial Planning/Direction phase, which defines intelligence requirements before data collection begins. Without this phase there is no structured objective to guide what is collected or analyzed.",
+      "Correct. The standard CTI lifecycle is: Plan/Direction (define requirements) → Collect (gather raw data from feeds and sensors) → Process (normalize, de-duplicate, enrich) → Analyze (derive actionable insights and context) → Disseminate (share finished intelligence with stakeholders) → Feedback (refine requirements for the next cycle).",
+      "Incorrect. Analyzing data before collecting it is logically impossible; the planning phase must also precede collection to define what to gather and why.",
+      "Incorrect. Disseminating intelligence before any collection, processing, or analysis has occurred inverts the entire lifecycle — no finished intelligence exists at the start of the cycle."
+    ]
+  },
+  {
+    id: "sp-018",
+    domain: "Security Processes and Programs",
+    question: "In Splunk Enterprise Security, how can a SOC formalize investigation runbook steps so that analysts are consistently prompted to follow a defined procedure when triaging a specific type of notable event?",
+    options: [
+      "By writing the runbook steps as SPL comments within the correlation search definition",
+      "By configuring workflow actions or response templates that surface the investigation steps directly in the Incident Review interface",
+      "By sending the runbook as an email attachment to the analyst when the notable event fires",
+      "By storing the runbook as a saved search in the Splunk Knowledge Manager"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. SPL comments in a correlation search are only visible to engineers editing the search definition; they are not surfaced to analysts triaging notable events in Incident Review.",
+      "Correct. Splunk ES supports configuring workflow actions and response templates that are displayed directly within the Incident Review interface when an analyst opens a notable event. These can include step-by-step investigation instructions, links to external knowledge bases, or embedded HTML guidance — ensuring consistent runbook adherence at triage time.",
+      "Incorrect. Email delivery requires the analyst to leave the triage interface and check their mailbox separately, breaking workflow continuity and introducing the risk that the runbook is missed during high-volume incidents.",
+      "Incorrect. Saved searches in Splunk are detection and reporting artifacts; they are not designed to present structured, contextual investigation guidance to analysts within the notable event triage workflow."
+    ]
+  },
+
+  /* ============================================================
+     AUTOMATION AND EFFICIENCY  (questions 13–18)
+     ============================================================ */
+  {
+    id: "ae-013",
+    domain: "Automation and Efficiency",
+    question: "In a Splunk SOAR contextualization playbook, a suspicious URL must be submitted to a sandbox service API for detonation and analysis. Which HTTP method is used to transmit the URL in the request body to the sandbox endpoint?",
+    options: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. GET requests transmit parameters in the URL query string; they are not suited for sending data payloads to a sandbox API and many sandbox APIs reject GET-based submissions because query strings are logged in plain text by proxies and servers.",
+      "Correct. HTTP POST is used to submit data in the request body to a server-side resource. When submitting a URL or file to a sandbox for detonation, the SOAR playbook's App action uses POST so the submission payload can be included in the request body — supporting arbitrary payload sizes and keeping the data out of server access logs.",
+      "Incorrect. PUT is used to update or replace an existing resource at a known URI; it is not the standard method for creating a new sandbox detonation submission.",
+      "Incorrect. DELETE is used to remove an existing resource; it is entirely unrelated to submitting data for analysis."
+    ]
+  },
+  {
+    id: "ae-014",
+    domain: "Automation and Efficiency",
+    question: "A Splunk SOAR automation engineer has configured a new asset for a ticketing system and receives an HTTP 403 response code when the playbook attempts to use it. What is the most likely cause?",
+    options: [
+      "The asset's base URL is incorrect and the endpoint does not exist",
+      "The asset's username or API token is incorrect and authentication is failing",
+      "The asset credentials are valid but do not have sufficient permissions to perform the requested action",
+      "The SOAR platform cannot reach the ticketing system due to a network routing issue"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. An incorrect URL or nonexistent endpoint would return an HTTP 404 (Not Found) response, not 403.",
+      "Incorrect. Incorrect credentials or an invalid API token would return an HTTP 401 (Unauthorized) response, indicating that authentication itself failed — not 403.",
+      "Correct. HTTP 403 (Forbidden) means the server successfully identified the requester (authentication passed) but the account does not have authorization to perform the specific operation. In SOAR asset configuration, this typically means the service account or API key is valid but lacks the required role or permissions for the API endpoint being called.",
+      "Incorrect. A network routing or connectivity issue would typically result in a connection timeout or TCP-level error rather than an HTTP 403 response, because an HTTP response code requires the server to have received and processed the request."
+    ]
+  },
+  {
+    id: "ae-015",
+    domain: "Automation and Efficiency",
+    question: "When Splunk SOAR ingests notable events from Splunk Enterprise Security, which configuration ensures that Splunk data model field names (e.g., src_ip, dest_ip) are consistently mapped to SOAR's container and artifact fields?",
+    options: [
+      "Field aliases defined in props.conf on the Splunk search head",
+      "CIM data model definitions in the Splunk Common Information Model add-on",
+      "Global field mappings configured in the SOAR Splunk connector settings",
+      "Custom SPL eval statements appended to each individual correlation search"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. props.conf field aliases normalize field names at Splunk search time for use within Splunk; they do not control how SOAR translates incoming event fields to its own internal container and artifact schema.",
+      "Incorrect. The CIM add-on establishes field naming conventions within Splunk. SOAR has its own data model, so a separate mapping layer is needed to translate between the two schemas; the CIM add-on alone does not provide this.",
+      "Correct. Global field mappings in the SOAR Splunk connector configuration define how Splunk event fields (following CIM naming conventions) are translated to SOAR artifact CEF fields and container metadata. This provides a centralized, consistent mapping that applies to all ES-to-SOAR event flows without requiring per-search customization.",
+      "Incorrect. Appending eval statements to individual correlation searches can create new fields for specific searches but requires modifying every search separately and does not provide centralized, governance-controlled mapping across all notable-event-to-SOAR flows."
+    ]
+  },
+  {
+    id: "ae-016",
+    domain: "Automation and Efficiency",
+    question: "In Splunk ES Mission Control, how does the system determine which response template to automatically associate with a newly created finding?",
+    options: [
+      "The response template name is hard-coded in the correlation search's SPL via an eval statement",
+      "Mission Control uses AI to select the most appropriate response template based on event content",
+      "Response templates are mapped to specific incident types; the finding's incident type determines which template is applied",
+      "An analyst must manually select a response template for every new finding before investigation can begin"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. Response templates are configured separately in Mission Control's incident type management interface; they are not embedded in correlation search SPL.",
+      "Incorrect. While Mission Control incorporates AI-assisted capabilities for some features, response template assignment is deterministic — it is based on the configured incident type mapping, not AI inference.",
+      "Correct. In Mission Control, response templates are associated with incident types. When a finding is created and assigned an incident type (e.g., 'Phishing', 'Ransomware', 'Insider Threat'), Mission Control automatically applies the pre-configured response template for that incident type, ensuring standardized and consistent investigation steps across the SOC.",
+      "Incorrect. While analysts can override templates, the system is explicitly designed to automatically apply the appropriate template based on the incident type — this automatic assignment is a core value of Mission Control's structured response workflow."
+    ]
+  },
+  {
+    id: "ae-017",
+    domain: "Automation and Efficiency",
+    question: "A SOC's SOP requires that phishing email attachments detected in Splunk ES be submitted to Splunk Attack Analyzer for detonation. What is the most efficient implementation to automate this workflow at scale?",
+    options: [
+      "Configure a Splunk ES alert action to forward the attachment to a shared analyst mailbox for manual submission",
+      "Create a Splunk SOAR playbook that automatically submits the attachment to Splunk Attack Analyzer and surfaces detonation results to the assigned analyst",
+      "Enable all ESCU phishing detections and configure 24-hour throttling to reduce duplicate notables",
+      "Use a scheduled SPL search to export attachment IOCs to a CSV file for weekly manual review"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Routing to a shared mailbox reintroduces manual steps and delays. During high-volume phishing campaigns, the shared mailbox creates a backlog and increases the risk of missed submissions.",
+      "Correct. A SOAR playbook can automatically extract attachment indicators from the notable event container, submit them to the Splunk Attack Analyzer API, poll for detonation results, and present the disposition (benign/malicious/suspicious) to the analyst within the SOAR case — fully automating the SOP workflow and reducing analyst workload.",
+      "Incorrect. Enabling ESCU phishing detections and tuning throttling improves detection coverage; it does not automate the Splunk Attack Analyzer submission workflow specified by the SOP.",
+      "Incorrect. Weekly CSV review introduces unacceptable detection-to-analysis latency for phishing (which needs same-hour response) and re-adds the manual effort that the SOP automation is designed to eliminate."
+    ]
+  },
+  {
+    id: "ae-018",
+    domain: "Automation and Efficiency",
+    question: "In Splunk ES Risk-Based Alerting, what is the purpose of a 'risk factor' and how does it differ from a standard correlation search that adds risk?",
+    options: [
+      "A risk factor is a scheduled search that creates new risk events in the Risk Index independently of correlation search results",
+      "A risk factor is a multiplier applied to a risk object's score based on its contextual characteristics (e.g., the user is a privileged account or the asset holds critical data), amplifying risk accumulation for high-value entities",
+      "A risk factor is the minimum score threshold that must be exceeded before a risk incident rule fires",
+      "A risk factor is the SOAR adaptive response action that converts aggregated risk events into SOAR containers"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Risk events in the Risk Index are generated by correlation searches that include the Risk Analysis adaptive response action; risk factors do not create events independently.",
+      "Correct. A risk factor in RBA is a configurable multiplier (e.g., 1.5× or 2×) attached to a risk object based on its attributes — such as whether the user is a VIP executive or service account, or whether the asset contains PCI or PHI data. This causes risk to accumulate faster for higher-value targets, aligning RBA sensitivity with actual business impact rather than treating all entities equally.",
+      "Incorrect. The minimum threshold is the trigger condition configured in the risk incident rule (e.g., aggregated score > 100); it is a separate concept from risk factor multipliers.",
+      "Incorrect. Converting risk events to SOAR containers is handled by an Adaptive Response action configured on a risk incident rule, not by risk factors."
+    ]
+  },
+
+  /* ============================================================
+     DATA ENGINEERING  (questions 7–9)
+     ============================================================ */
+  {
+    id: "deng-007",
+    domain: "Data Engineering",
+    question: "In Splunk's Common Information Model, what mechanism do technology add-ons use to associate raw events with a CIM data model (e.g., making firewall logs appear in the Network Traffic data model)?",
+    options: [
+      "The add-on writes events to a specially named CIM index during ingestion",
+      "The add-on defines eventtypes in eventtypes.conf and assigns CIM-required tags in tags.conf",
+      "The CIM add-on reads the technology add-on's lookup tables to find matching events",
+      "A KV store collection maps the add-on's sourcetype names to data model names"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. CIM compliance does not require routing events to a special index; it is achieved through field normalization and event classification via eventtypes and tags, not index routing.",
+      "Correct. Technology add-ons use eventtypes.conf to define which events belong to a category (e.g., by sourcetype and field values) and tags.conf to assign the CIM-required tags (e.g., tag=network tag=communicate) to those eventtypes. The CIM data models use these tag constraints in their root event definitions to determine which events populate each model.",
+      "Incorrect. The CIM add-on provides data model schema definitions; it does not read lookup tables to find which events to include. That association is established through the eventtype-to-tag mapping in technology add-ons.",
+      "Incorrect. KV store collections are used for lookup tables (threat intelligence IOCs, asset lists, etc.); they are not used to map sourcetypes or add-ons to CIM data models."
+    ]
+  },
+  {
+    id: "deng-008",
+    domain: "Data Engineering",
+    question: "A Splunk administrator must decide whether to extract a critical security field at index time or search time. Which statement correctly describes a key trade-off of index-time field extraction?",
+    options: [
+      "Index-time extraction is slower at search time but faster to configure than search-time extraction",
+      "Index-time extraction permanently stores field values alongside raw events, improving search performance at the cost of increased storage",
+      "Index-time extraction allows field names to be renamed after ingestion without reindexing",
+      "Index-time extraction is only supported for JSON-formatted log sources"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Index-time extraction is faster at search time (the opposite of this option) because field values are pre-computed and stored. Configuration complexity is also greater, not lesser, because incorrect configurations cannot be corrected without reindexing.",
+      "Correct. Index-time field extractions write the extracted field name and value into the index alongside the raw event. This means searches do not need to re-parse raw text at query time — improving performance. The trade-off is that the extracted values are stored redundantly with the raw data, increasing the index footprint.",
+      "Incorrect. Index-time extractions are written permanently at ingest time and cannot be changed or renamed without reindexing historical data. Search-time extractions (via EXTRACT in props.conf) can be added, modified, or renamed without touching indexed data.",
+      "Incorrect. Index-time field extractions can be configured for any structured or unstructured log format (syslog, CSV, JSON, custom delimited); availability is determined by the Splunk parsing pipeline, not by log structure."
+    ]
+  },
+  {
+    id: "deng-009",
+    domain: "Data Engineering",
+    question: "A new security data source produces logs where each line is a complete JSON object. What is the recommended Splunk props.conf setting to automatically extract all JSON key-value pairs as searchable fields without writing custom regex?",
+    options: [
+      "Configure a TRANSFORMS stanza in transforms.conf with a separate regex for each JSON key",
+      "Set KV_MODE = json in props.conf for the sourcetype",
+      "Enable data model acceleration for the JSON sourcetype",
+      "Deploy a Heavy Forwarder to parse the JSON before forwarding to the indexer"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Writing individual TRANSFORMS regex stanzas for each JSON key is labor-intensive, brittle, and entirely unnecessary since Splunk has native JSON key-value extraction built into the parsing pipeline.",
+      "Correct. Setting KV_MODE = json in props.conf instructs Splunk's search-time key-value extraction pipeline to parse each event as a JSON object and automatically extract all key-value pairs as searchable fields, with no custom regex required. For index-time extraction, INDEXED_EXTRACTIONS = json can also be used.",
+      "Incorrect. Data model acceleration builds TSIDX summaries to speed up searches against pre-defined data model schemas; it does not extract field values from the raw event content.",
+      "Incorrect. While a Heavy Forwarder can transform data before forwarding, routing JSON logs through an additional full Splunk instance purely for parsing introduces unnecessary infrastructure overhead when Splunk's native KV_MODE = json provides the same result with a single props.conf setting."
+    ]
+  },
+
+  /* ============================================================
+     AUDITING AND REPORTING  (questions 7–9)
+     ============================================================ */
+  {
+    id: "ar-007",
+    domain: "Auditing and Reporting",
+    question: "Which Splunk Enterprise Security dashboard provides a high-level overview of the current security posture using Key Security Indicators (KSIs) — color-coded metrics across access, network, identity, and endpoint domains?",
+    options: [
+      "Incident Review dashboard",
+      "Security Posture dashboard",
+      "Risk Analysis dashboard",
+      "Detection Studio Launchpad"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The Incident Review dashboard is the analyst triage interface showing individual notable events and their status; it does not aggregate or visualize security posture metrics across control domains.",
+      "Correct. The Security Posture dashboard in Splunk ES presents Key Security Indicators (KSIs) as color-coded tiles across security control domains (access, endpoint, network, identity). It gives security managers and executives an at-a-glance summary of how well security controls are operating across the environment.",
+      "Incorrect. The Risk Analysis dashboard displays risk score distributions, top risk objects, and contributing risk events; it is a tactical threat investigation tool, not a broad security posture summary.",
+      "Incorrect. The Detection Studio Launchpad is an operational tool for detection engineers showing MITRE ATT&CK coverage and detection health; it is not intended as a security posture view for management or compliance audiences."
+    ]
+  },
+  {
+    id: "ar-008",
+    domain: "Auditing and Reporting",
+    question: "In Splunk, what is the fundamental difference between a scheduled alert and a scheduled report?",
+    options: [
+      "Scheduled alerts run more frequently; scheduled reports run less frequently by design",
+      "A scheduled alert triggers configured actions only when its condition is met; a scheduled report always saves or distributes results regardless of content",
+      "Scheduled reports can only be delivered as PDF attachments; scheduled alerts always create notable events",
+      "Scheduled alerts use real-time search mode; scheduled reports always use historical time ranges"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Both scheduled alerts and reports can run at any frequency defined by a cron expression; run frequency is not an inherent architectural difference between the two types.",
+      "Correct. A scheduled alert evaluates a condition (e.g., number of results > 0) after its search runs, and only fires its configured actions (email, webhook, notable event) when that condition is satisfied. A scheduled report always saves results and can distribute them (email, PDF, CSV) on schedule regardless of whether the content is 'interesting' — it does not have a conditional trigger.",
+      "Incorrect. Both scheduled alerts and reports support multiple delivery formats, including inline email, CSV, and PDF. Alerts do not exclusively create notable events; they can also trigger email or custom alert actions.",
+      "Incorrect. Both scheduled alerts and reports default to historical time range searches; real-time search mode is a separate option available to both types but is not a defining distinction between them."
+    ]
+  },
+  {
+    id: "ar-009",
+    domain: "Auditing and Reporting",
+    question: "A SOC manager wants to calculate Mean Time to Respond (MTTR) for notable events resolved in the past 30 days. Which Splunk indexes and approach would provide the necessary data?",
+    options: [
+      "Query the `risk` index and calculate the average urgency score across all risk objects",
+      "Query the `notable` index for creation times and the `notable_updates` index for status-change timestamps, then calculate the elapsed time between creation and resolution",
+      "Query the `threat_activity` index for events with a resolved status flag",
+      "Use the Forwarder Audit dashboard's average indexing latency metric"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The risk index contains risk scoring events for the Risk Index framework; it does not track notable event creation timestamps or resolution activity needed for MTTR calculation.",
+      "Correct. Notable events are stored in the notable index with their creation time. Analyst actions — including status changes to 'Resolved' — are recorded in the notable_updates index. By querying both and calculating the time difference between a notable's creation time and its resolution timestamp, a detection engineer can compute per-notable and average MTTR across any time window.",
+      "Incorrect. The threat_activity index stores threat intelligence match events (IOC hits from the Threat Intelligence Framework); it does not contain notable event lifecycle data needed for MTTR measurement.",
+      "Incorrect. The Forwarder Audit dashboard tracks data pipeline latency — the time between a forwarder collecting data and it appearing in the index. This is an infrastructure metric, not an incident response time metric."
+    ]
   }
 
 ];
