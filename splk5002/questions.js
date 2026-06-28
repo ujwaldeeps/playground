@@ -1684,6 +1684,566 @@ window.QUESTIONS = [
       "Incorrect. The threat_activity index stores threat intelligence match events (IOC hits from the Threat Intelligence Framework); it does not contain notable event lifecycle data needed for MTTR measurement.",
       "Incorrect. The Forwarder Audit dashboard tracks data pipeline latency — the time between a forwarder collecting data and it appearing in the index. This is an infrastructure metric, not an incident response time metric."
     ]
+  },
+
+  /* ============================================================
+     DETECTION ENGINEERING  (questions 37–48)
+     ============================================================ */
+  {
+    id: "de-037",
+    domain: "Detection Engineering",
+    question: "A detection engineer wants to detect malicious process execution events such as PowerShell spawned by a Microsoft Office application. Which CIM data model and dataset provides the normalized fields for process name, parent process name, command-line arguments, and user?",
+    options: [
+      "Network Traffic data model — All_Traffic dataset",
+      "Endpoint data model — Processes dataset",
+      "Authentication data model — Default Authentication dataset",
+      "Web data model — Web dataset"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The Network Traffic data model normalizes connection-level fields (src/dest IP, port, bytes, protocol); it does not contain process execution metadata such as parent process or command-line arguments.",
+      "Correct. The CIM Endpoint data model's Processes dataset normalizes fields from EDR and Sysmon logs including process_name, parent_process_name, process_id, parent_process_id, process (command line), and user — making it the correct foundation for process-based detections like parent-child relationship anomalies.",
+      "Incorrect. The Authentication data model covers login and credential events. While a user field exists, it does not provide process lineage, command-line arguments, or parent-child process relationships.",
+      "Incorrect. The Web data model normalizes HTTP/proxy traffic; it contains no process execution fields."
+    ]
+  },
+  {
+    id: "de-038",
+    domain: "Detection Engineering",
+    question: "A detection engineer is building a search to identify Pass-the-Hash (PtH) authentication attacks against Windows systems. Which combination of Windows Security event fields is a primary indicator of PtH?",
+    options: [
+      "Event 4625 (failed logon) with a high count from a single source IP within a 5-minute window",
+      "Event 4624 (successful logon) with Logon Type 3 (Network) using NTLM authentication originating from an unexpected internal host",
+      "Event 4740 (account lockout) followed by Event 4624 from the same user within 10 minutes",
+      "Event 4688 (process creation) showing lsass.exe launching cmd.exe"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. A high count of 4625 (failed logon) events indicates brute-force or password spray, not Pass-the-Hash. PtH typically produces successful authentications because the attacker uses a valid hash, not failed logons.",
+      "Correct. Pass-the-Hash exploits the NTLM authentication protocol by replaying a captured password hash. This produces a successful Event 4624 with Logon Type 3 (Network logon) using NTLM — especially suspicious when the source host is a workstation that would not normally authenticate to the target using NTLM, or when no corresponding interactive logon exists.",
+      "Incorrect. Account lockout followed by successful logon could indicate a user recovering from an inadvertent lockout; it is not a direct indicator of PtH, which produces successful authentications without prior failures.",
+      "Incorrect. lsass.exe spawning cmd.exe is a potential indicator of credential dumping or LSASS exploitation — a different attack technique — not the network authentication pattern characteristic of PtH."
+    ]
+  },
+  {
+    id: "de-039",
+    domain: "Detection Engineering",
+    question: "In Splunk SPL, what is the key behavioral difference between the `search` command and the `where` command when filtering events in a detection pipeline?",
+    options: [
+      "`search` can only be used at the beginning of a pipeline; `where` can only be used at the end of a pipeline",
+      "`search` filters using keyword matching and also searches raw event text (_raw); `where` evaluates a Boolean expression using eval-compatible functions against extracted field values only",
+      "`search` is always faster than `where` for all filtering use cases in a correlation search",
+      "`where` can match patterns in the raw _raw field; `search` can only filter on explicitly extracted fields"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Both `search` and `where` can appear anywhere in a pipeline after the initial search command; neither is restricted to a specific position.",
+      "Correct. The `search` command accepts keyword terms and field=value expressions, and also scans the raw event text (_raw), making it useful for broad filtering. The `where` command evaluates a Boolean expression using eval functions (e.g., match(), like(), isnull()) applied strictly to extracted field values — it cannot search raw event text and requires fields to exist.",
+      "Incorrect. Performance depends on the specific filter and data. `where` can actually be more efficient for complex field-based conditions because it uses eval's optimized expression engine, while `search` may scan raw text unnecessarily.",
+      "Incorrect. This reverses the correct behavior. `search` is the command that can scan raw event text (_raw); `where` operates exclusively on extracted field values."
+    ]
+  },
+  {
+    id: "de-040",
+    domain: "Detection Engineering",
+    question: "An analyst suspects a compromised host is beaconing to a C2 server with highly regular periodic connections. Which SPL-based approach is most effective for identifying this pattern?",
+    options: [
+      "Alert on any connection where bytes_out exceeds a threshold to identify large data transfers",
+      "Calculate the standard deviation of inter-connection time intervals per destination IP; a very low standard deviation indicates highly regular, machine-driven (beacon-like) traffic",
+      "Match the destination IP against the ip_intel threat intelligence lookup for known malicious IPs",
+      "Alert on any connection to a destination that has not been seen in the previous 30 days"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Large bytes_out values indicate potential exfiltration but not beaconing. C2 beacon traffic is often small (just keep-alive or command polling) and would not trigger a high-bytes threshold.",
+      "Correct. Beaconing is characterized by machine-generated traffic at extremely regular intervals. Calculating the standard deviation of time gaps between consecutive connections from a host to a specific destination — using streamstats delta(_time) and then stats stdev — surfaces connections with near-zero variance in interval length, which is statistically improbable for human-initiated traffic.",
+      "Incorrect. Matching against threat intelligence is useful for known-bad IOCs, but novel or newly stood-up C2 infrastructure will not appear in threat feeds. Beaconing detection is a behavioral approach that catches unknown C2 infrastructure.",
+      "Incorrect. First-seen destination detection identifies new connections but will fire on every new external connection regardless of beaconing behavior, producing high false positive volumes without capturing the periodicity pattern."
+    ]
+  },
+  {
+    id: "de-041",
+    domain: "Detection Engineering",
+    question: "A detection engineer needs to build a time-series visualization showing the count of authentication failures per hour over the past 7 days to identify anomalous spikes. Which SPL command produces a correctly time-bucketed result for this purpose?",
+    options: [
+      "| stats count BY _time",
+      "| timechart span=1h count WHERE action=failure",
+      "| chart count OVER _time BY action",
+      "| eventstats count AS hourly_count BY action"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. stats count BY _time groups by exact _time values (down to the second), producing thousands of single-event rows rather than hourly buckets. It does not aggregate into time intervals.",
+      "Correct. timechart automatically buckets events into time intervals (span=1h creates one-hour buckets) and aggregates the count for each bucket. It produces a table with _time as the x-axis and the count as the y-axis, making it the correct command for time-series anomaly visualization.",
+      "Incorrect. chart requires explicit OVER and BY clauses and does not automatically bucket _time into configurable spans; using it with a raw _time field produces per-second grouping like stats, not hourly buckets.",
+      "Incorrect. eventstats computes aggregate statistics and appends them back to every original event without grouping into time buckets; it does not produce a time-series summary."
+    ]
+  },
+  {
+    id: "de-042",
+    domain: "Detection Engineering",
+    question: "In Splunk, which command computes a running (rolling) aggregate over a sliding time window and appends the result as a new field to each individual event, without collapsing the result set?",
+    options: [
+      "stats count BY user",
+      "eventstats avg(count) AS avg_rate BY user",
+      "streamstats time_window=1h count AS rolling_count BY user",
+      "transaction user maxspan=1h"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. stats collapses all events into one row per group, discarding individual event records. It cannot compute a running windowed aggregate per event.",
+      "Incorrect. eventstats computes a global aggregate across the full result set and appends it to every event, but it does not compute a sliding time-window aggregate — it calculates one value across all events, not a rolling value per time window.",
+      "Correct. streamstats processes events in chronological order and computes running statistics within a configurable sliding time window (time_window=1h) scoped to a field (BY user), appending the current running value to each event. This preserves every individual event while adding a rolling count that detection logic can compare against thresholds.",
+      "Incorrect. transaction groups consecutive events into a single merged event (a transaction); the individual events within the group are collapsed, making it unsuitable for per-event anomaly detection against a rolling count."
+    ]
+  },
+  {
+    id: "de-043",
+    domain: "Detection Engineering",
+    question: "An analyst suspects DNS tunneling is being used for data exfiltration. Which characteristic of DNS query data should a detection engineer focus on when building a correlation search for this technique?",
+    options: [
+      "DNS queries returning an NXDOMAIN (non-existent domain) response code",
+      "DNS queries with unusually long subdomain labels or high-entropy random-looking domain names indicating encoded data",
+      "DNS responses with TTL values greater than 3600 seconds indicating stale cache entries",
+      "A single DNS query to an external resolver that bypasses the internal DNS server"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. NXDOMAIN responses indicate queries for domains that do not exist; while this can indicate DGA (domain generation algorithm) activity, it is not the defining indicator of DNS tunneling, which typically receives valid responses from attacker-controlled DNS servers.",
+      "Correct. DNS tunneling encodes data (commands, exfiltrated content) into DNS query hostnames as subdomains. This produces unusually long subdomain labels (often exceeding 50 characters), high-entropy strings that look random or Base64-encoded, and an abnormally high query rate to the same domain — all detectable through statistical analysis of DNS query logs.",
+      "Incorrect. High DNS TTL values affect how long resolvers cache responses; they are a configuration characteristic of the DNS server, not an indicator of tunneling activity in query patterns.",
+      "Incorrect. A single query to an external resolver may indicate DNS over HTTPS circumvention or a misconfigured client, but by itself does not indicate tunneling. Tunneling is characterized by volume and encoding patterns, not a single bypass event."
+    ]
+  },
+  {
+    id: "de-044",
+    domain: "Detection Engineering",
+    question: "When using the SPL `lookup` command to enrich events with an asset table, what is the behavioral difference between `OUTPUT` and `OUTPUTNEW`?",
+    options: [
+      "`OUTPUT` appends new fields only when no existing field with that name exists; `OUTPUTNEW` always overwrites existing fields",
+      "`OUTPUT` overwrites any existing field with the same name with the lookup value; `OUTPUTNEW` only populates a field if it does not already exist in the event",
+      "`OUTPUT` requires a KV store lookup; `OUTPUTNEW` works only with CSV lookup files",
+      "`OUTPUT` and `OUTPUTNEW` are functionally identical; the distinction was removed in Splunk 8.0"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. This describes the opposite of the actual behavior. OUTPUT overwrites; OUTPUTNEW preserves existing values.",
+      "Correct. OUTPUT unconditionally writes the lookup field value to the event, overwriting any existing field with the same name. OUTPUTNEW is a non-destructive variant that only sets the field if the event does not already contain a field with that name — useful when you want to enrich events that are missing a field without replacing values that are already present.",
+      "Incorrect. Both OUTPUT and OUTPUTNEW work with any lookup type — CSV files, KV store collections, and external lookup scripts. The lookup storage type does not determine which output clause is available.",
+      "Incorrect. Both OUTPUT and OUTPUTNEW remain distinct and actively used SPL clauses in all current Splunk versions; their behavioral difference is a tested concept in Splunk certification exams."
+    ]
+  },
+  {
+    id: "de-045",
+    domain: "Detection Engineering",
+    question: "A detection engineer wants to identify credential dumping attacks targeting the Windows LSASS process. Which data source and event indicator is most directly relevant?",
+    options: [
+      "Windows Security Event 4624 with Logon Type 3 (Network) originating from the LSASS process",
+      "Windows Sysmon Event ID 10 (ProcessAccess) where the target image is lsass.exe and GrantedAccess includes memory-read permissions",
+      "Windows Security Event 4740 showing LSASS account lockout events",
+      "Network Traffic logs showing the host making outbound connections on TCP/445 immediately after a logon"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Event 4624 records successful authentication logon events at the OS level; it records that LSASS processed a logon but does not record external processes attempting to read LSASS memory.",
+      "Correct. Sysmon Event ID 10 (ProcessAccess) is generated when one process opens a handle to another process with specific access rights. Tools like Mimikatz request memory-read access (e.g., GrantedAccess 0x1010 or 0x1fffff) to lsass.exe to read credential material from memory — making this event the primary indicator for LSASS credential dumping.",
+      "Incorrect. LSASS is not a user account and does not generate account lockout events (4740). Event 4740 records user account lockouts triggered by authentication failures.",
+      "Incorrect. Outbound SMB connections (TCP/445) after a logon may indicate lateral movement using Pass-the-Hash, but they are a downstream effect — not the direct indicator of LSASS memory access that constitutes credential dumping."
+    ]
+  },
+  {
+    id: "de-046",
+    domain: "Detection Engineering",
+    question: "A detection engineer uses a subsearch to retrieve malicious IP addresses from a threat intelligence index and match them against live network events. What is a critical limitation of this approach that could silently reduce detection coverage?",
+    options: [
+      "Subsearches cannot reference indexed data; they can only read from KV store collections",
+      "Subsearches are capped at 10,000 results by default; a threat intelligence list larger than this limit will be silently truncated, causing some IOCs to go unmatched",
+      "Subsearches automatically clear the search head cache after each run, preventing data model acceleration from being used",
+      "Subsearches always execute in real-time mode regardless of the parent search's scheduled time range"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Subsearches can query any Splunk index; they are not restricted to KV store collections. They are regular SPL searches that run before the main search and pass their results as a generated lookup.",
+      "Correct. Splunk subsearches have a default maximum result limit of 10,000 rows (configurable via maxresults in limits.conf). If a threat intelligence list contains more than 10,000 indicators, the subsearch silently returns only the first 10,000 — with no warning to the analyst — leaving the remaining IOCs unmatched. This is a key reason why the `lookup` command against a KV store collection is preferred for large threat intel datasets.",
+      "Incorrect. Subsearches do not clear the search head cache; they are standard searches that benefit from caching like any other query. Data model acceleration is unaffected by subsearch execution.",
+      "Incorrect. Subsearches run within the same execution context as the parent search and honor the same scheduled time range configuration; they do not switch to real-time mode independently."
+    ]
+  },
+  {
+    id: "de-047",
+    domain: "Detection Engineering",
+    question: "An analyst is building an 'impossible travel' detection to flag users who authenticate from two geographically distant locations within a time window too short to physically travel between them. Which combination of Splunk capabilities is central to implementing this detection?",
+    options: [
+      "A stats count BY user to find users with more than one source IP in a session",
+      "The iplocation command to geo-resolve source IPs, combined with stats to compare first and last authentication location per user within a time window",
+      "A lookup against ip_intel to check if either source IP is a known VPN or Tor exit node",
+      "A threshold alert on authentication failure counts per user per hour"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Counting source IPs per user identifies multi-location logins but cannot determine whether the distance between those locations is physically impossible without also resolving the geographic coordinates of each IP.",
+      "Correct. The iplocation command enriches each authentication event with latitude, longitude, and country fields derived from the source IP. Combining this with stats or transaction to retrieve the first and last login location per user within a defined window, and then computing the geographic distance and comparing it against what is physically achievable in the elapsed time, implements the impossible travel logic.",
+      "Incorrect. Checking against VPN/Tor lookups identifies suspicious proxy usage but does not detect impossible travel — a user could authenticate from two distant corporate locations without using a VPN.",
+      "Incorrect. Authentication failure counts detect brute-force patterns; they do not address the geographic distance and time-window logic required for impossible travel detection."
+    ]
+  },
+  {
+    id: "de-048",
+    domain: "Detection Engineering",
+    question: "In Splunk ES, when a correlation search uses the `| collect` command to write results to a summary index, what is the primary security detection use case for this pattern?",
+    options: [
+      "Storing raw events in a secondary index for longer retention without affecting the main index size",
+      "Pre-computing and caching expensive statistical baselines (e.g., daily user login counts) so that real-time correlation searches can compare live events against the stored baseline efficiently",
+      "Replicating notable events to a backup Splunk deployment for disaster recovery",
+      "Exporting correlation search results to a flat file for integration with third-party SIEM tools"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. While summary indexes can serve archival purposes, the security detection use case is specifically about baseline caching — not primary data retention management, which is an index lifecycle concern.",
+      "Correct. Summary indexing with collect is used to store pre-computed aggregates (e.g., average login count per user per day over the past 30 days) in a small, fast summary index. Real-time detection searches then look up these baselines from the summary index rather than re-scanning weeks of raw events on every run, enabling efficient behavioral anomaly detection at scale.",
+      "Incorrect. Summary indexing is not a replication or disaster recovery mechanism; Splunk's indexer clustering and SmartStore features handle high-availability and backup use cases.",
+      "Incorrect. Summary indexes are native Splunk indexes, not flat files. Export to external systems would use the outputcsv command or a dedicated forwarding configuration — not collect into a summary index."
+    ]
+  },
+
+  /* ============================================================
+     SECURITY PROCESSES AND PROGRAMS  (questions 19–24)
+     ============================================================ */
+  {
+    id: "sp-019",
+    domain: "Security Processes and Programs",
+    question: "Which sequence correctly represents the incident response lifecycle phases defined in NIST Special Publication 800-61?",
+    options: [
+      "Identify → Protect → Detect → Respond → Recover",
+      "Preparation → Detection & Analysis → Containment, Eradication & Recovery → Post-Incident Activity",
+      "Plan → Detect → Respond → Remediate → Report",
+      "Triage → Escalate → Contain → Restore → Document"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. This sequence describes the five functions of the NIST Cybersecurity Framework (CSF), not the incident response lifecycle from SP 800-61. These are high-level organizational program functions, not IR operational phases.",
+      "Correct. NIST SP 800-61 defines the incident response lifecycle as: Preparation (building capability before incidents occur) → Detection & Analysis (identifying and validating incidents) → Containment, Eradication & Recovery (stopping the incident and restoring systems) → Post-Incident Activity (lessons learned and process improvement).",
+      "Incorrect. While this sequence describes a reasonable IR process intuitively, it is not the terminology used in NIST SP 800-61 and omits the Preparation phase, which NIST identifies as the most critical foundational element.",
+      "Incorrect. This describes common SOC operational steps at a workflow level but does not correspond to the formal NIST SP 800-61 IR lifecycle phases."
+    ]
+  },
+  {
+    id: "sp-020",
+    domain: "Security Processes and Programs",
+    question: "In a three-tier SOC model, which description best characterizes the primary responsibility of a Tier-3 analyst?",
+    options: [
+      "Monitoring the SIEM dashboard and triaging newly generated alerts using standard runbooks",
+      "Investigating alerts escalated from Tier-1 that require more context and deeper analysis beyond standard runbooks",
+      "Conducting proactive threat hunting, performing advanced forensic and malware analysis, and developing new detection capabilities",
+      "Managing Splunk infrastructure, data pipeline health, and user access provisioning"
+    ],
+    correct: 2,
+    explanations: [
+      "Incorrect. Monitoring the SIEM dashboard and performing initial triage using standard runbooks is the primary responsibility of Tier-1 analysts — the first point of contact for incoming alerts.",
+      "Incorrect. Handling escalations that require deeper contextual investigation beyond runbooks describes Tier-2 analyst work, which bridges the gap between routine triage and advanced threat analysis.",
+      "Correct. Tier-3 analysts are the most experienced members of the SOC. Their work focuses on proactive threat hunting (finding unknown threats before alerts fire), advanced forensic and malware analysis, reverse engineering, and contributing back to the team by developing new detection logic, playbooks, and improving the overall detection capability.",
+      "Incorrect. Managing Splunk infrastructure, data pipelines, and user provisioning is typically an engineering or platform operations function — not a SOC analyst tier responsibility, regardless of tier level."
+    ]
+  },
+  {
+    id: "sp-021",
+    domain: "Security Processes and Programs",
+    question: "In Splunk ES, the urgency of a notable event is calculated from two inputs. Which field from the Asset and Identity framework combines with the correlation search's configured severity to determine urgency?",
+    options: [
+      "The risk_score accumulated in the Risk Index for the associated risk object",
+      "The priority field assigned to the affected asset or identity in the Asset and Identity lookup",
+      "The ESCU content confidence score assigned to the detection",
+      "The throttle period configured on the correlation search"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The risk_score in the Risk Index is an accumulation of behavioral risk events used by RBA; it is not an input to the urgency calculation on individual notable events generated by standard correlation searches.",
+      "Correct. The urgency field on a notable event is computed by combining the correlation search's configured severity level (informational, low, medium, high, critical) with the priority of the matched asset or identity from the Asset and Identity framework (unknown, low, medium, high, critical). A high-severity detection on a critical-priority asset produces a 'critical' urgency, ensuring the most important systems receive the most immediate attention.",
+      "Incorrect. ESCU content confidence scores indicate how reliable a detection is as a true-positive indicator; they inform tuning decisions but are not a direct input to the urgency calculation formula.",
+      "Incorrect. The throttle period controls duplicate notable suppression; it has no role in computing the urgency level of a notable event."
+    ]
+  },
+  {
+    id: "sp-022",
+    domain: "Security Processes and Programs",
+    question: "An analyst reviewing notable events in Splunk ES sees multiple detections mapped to the MITRE ATT&CK 'Discovery' tactic (TA0007). What type of adversary activity does this tactic represent?",
+    options: [
+      "Techniques used to gain initial access to a network, such as phishing or exploiting a public-facing application",
+      "Techniques used to enumerate internal systems, accounts, services, network topology, and installed software after gaining a foothold",
+      "Techniques used to exfiltrate sensitive data out of the compromised environment",
+      "Techniques used to achieve and maintain a persistent foothold across system reboots and credential changes"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Gaining initial access is covered by the MITRE ATT&CK 'Initial Access' tactic (TA0001), which describes the first techniques used to enter a network. Discovery occurs after a foothold has already been established.",
+      "Correct. The Discovery tactic (TA0007) covers techniques adversaries use after gaining access to learn about the internal environment — such as enumerating user accounts, system information, network shares, active directory objects, and running processes. This reconnaissance of the internal network helps attackers plan further actions like lateral movement and privilege escalation.",
+      "Incorrect. Data exfiltration is covered by the 'Exfiltration' tactic (TA0010), which describes techniques for stealing data after it has been collected. Discovery precedes collection and exfiltration in the attack chain.",
+      "Incorrect. Maintaining persistence across restarts and credential changes is covered by the 'Persistence' tactic (TA0003). Discovery is about learning about the environment, not about ensuring continued access."
+    ]
+  },
+  {
+    id: "sp-023",
+    domain: "Security Processes and Programs",
+    question: "Which standard format and transport protocol pair are most commonly used to exchange structured cyber threat intelligence (CTI) between organizations in a machine-readable, automated way?",
+    options: [
+      "CSV files transported over HTTPS",
+      "STIX (Structured Threat Information Expression) transported over TAXII (Trusted Automated Exchange of Intelligence Information)",
+      "JSON payloads delivered over FTP",
+      "YARA rules shared via email"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. CSV files over HTTPS are a simple, human-readable format used for basic IOC sharing but lack the rich context, relationship modeling, and automated processing capabilities of STIX. CSV has no standard schema for expressing attack patterns, campaigns, or threat actor TTPs.",
+      "Correct. STIX is the standardized schema for expressing CTI objects (indicators, malware, threat actors, attack patterns, etc.) in a structured, machine-readable format. TAXII is the transport protocol that defines how STIX bundles are served and consumed via a client-server model. Together they form the industry-standard automated threat intelligence sharing framework supported by Splunk ES's TAXII feed ingestion.",
+      "Incorrect. FTP is an insecure, non-standard, and non-automated transport for CTI. It provides no schema for structured intelligence objects and is not used in modern threat intelligence sharing platforms.",
+      "Incorrect. YARA rules are used for malware pattern matching in file analysis; they are a detection artifact, not a structured threat intelligence format. They are shared informally and do not carry the rich context (actor attribution, campaign information, kill chain mapping) that STIX provides."
+    ]
+  },
+  {
+    id: "sp-024",
+    domain: "Security Processes and Programs",
+    question: "In incident response terminology, what does 'dwell time' measure?",
+    options: [
+      "The time it takes for a Splunk correlation search to return results after execution",
+      "The elapsed time between when an attacker first gains access to an environment and when the intrusion is discovered by the security team",
+      "The duration a notable event remains in 'In Progress' status in Incident Review before being resolved",
+      "The time required to restore a compromised system to full operation after eradication"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. Search execution latency is a Splunk performance metric, not an incident response concept. Dwell time refers to attacker presence in an environment, not system response times.",
+      "Correct. Dwell time (also called 'breakout time' in some frameworks) measures how long an attacker remains undetected inside a compromised environment — from the moment of initial access to the moment of discovery. Reducing dwell time is a primary SOC objective because shorter dwell time limits the attacker's opportunity for lateral movement, data staging, and exfiltration.",
+      "Incorrect. The time a notable event spends in a specific status is a SOC workflow metric related to MTTR (Mean Time to Respond); it is a process efficiency measurement, not a measurement of attacker presence duration.",
+      "Incorrect. Recovery time after remediation is a component of MTTR or Recovery Time Objective (RTO); it measures the restoration phase after an incident has been detected and contained, not the period of undetected attacker presence."
+    ]
+  },
+
+  /* ============================================================
+     AUTOMATION AND EFFICIENCY  (questions 19–24)
+     ============================================================ */
+  {
+    id: "ae-019",
+    domain: "Automation and Efficiency",
+    question: "In Splunk SOAR, what is the purpose of a 'workbook' in the context of incident response?",
+    options: [
+      "A visual drag-and-drop editor for designing automated playbook logic flows",
+      "A structured set of tasks and phases that guide analysts through a defined investigation or response procedure with trackable completion status",
+      "A saved SPL search template that playbooks use to query Splunk index data",
+      "A configuration file that maps incoming SOAR containers to Splunk ES notable event fields"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The visual drag-and-drop editor for designing automated playbook logic is the SOAR Playbook Editor (Visual Playbook Editor), not a workbook.",
+      "Correct. A SOAR workbook is a structured, human-facing incident response template containing tasks organized into phases (e.g., Triage, Containment, Eradication, Recovery). Each task can be assigned to an analyst, marked complete, and tracked — providing a governed, auditable checklist that runs alongside automated playbooks to ensure all manual investigation steps are completed.",
+      "Incorrect. SPL search templates for playbooks are configured within the Splunk App action blocks inside a playbook; they are not workbooks.",
+      "Incorrect. Container-to-notable field mapping is handled by the global field mappings and label-based routing configuration in the SOAR Splunk connector; this is not a workbook function."
+    ]
+  },
+  {
+    id: "ae-020",
+    domain: "Automation and Efficiency",
+    question: "In Splunk SOAR, an automation engineer marks a newly developed playbook as 'inactive'. What is the effect of this setting?",
+    options: [
+      "The playbook runs in a sandboxed debug mode, logging all actions without executing them on real systems",
+      "The playbook is prevented from running automatically via label-based triggers but can still be run manually on-demand against specific containers",
+      "The playbook is soft-deleted and permanently removed from the environment after 30 days",
+      "The playbook continues to run automatically but skips any action blocks that would modify external systems"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. SOAR has a separate 'Debug' execution mode (run in debug) that allows playbooks to be tested with simulated actions; this is distinct from the active/inactive status toggle.",
+      "Correct. Setting a playbook to 'inactive' disables automatic triggering — the playbook will not run when a new container matches its label filters. However, an analyst can still manually invoke the inactive playbook on-demand from a specific container's event details page, which is useful during testing and review before the playbook is promoted to active production use.",
+      "Incorrect. SOAR does not automatically delete inactive playbooks on a timer. Inactive playbooks remain in the environment indefinitely until explicitly deleted by an administrator.",
+      "Incorrect. There is no selective action-skipping mode in SOAR based on active/inactive status; the inactive flag controls whether the playbook runs at all via automatic triggers, not which blocks within it execute."
+    ]
+  },
+  {
+    id: "ae-021",
+    domain: "Automation and Efficiency",
+    question: "In Splunk SOAR's data model, what is the relationship between a 'container' and an 'artifact'?",
+    options: [
+      "A container is a single event field value; an artifact is the parent record that groups multiple field containers",
+      "A container is the top-level incident or case record; artifacts are the individual data objects (IP addresses, file hashes, URLs, email addresses) associated with that case",
+      "A container holds playbook execution logs; artifacts hold the original raw event data from the SIEM",
+      "Container and artifact are interchangeable terms; they refer to the same SOAR data structure"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. This reverses the correct hierarchy. A container is the parent record (the case/incident); it is not a single field value.",
+      "Correct. In SOAR's data model, a container is the top-level record that represents a security incident or event (analogous to a ticket in a ITSM system). Artifacts are the individual observable data objects — such as source IP addresses, destination IPs, file hashes, URLs, email headers, or usernames — that are associated with the container and used as inputs to playbook App actions.",
+      "Incorrect. Playbook execution logs are stored in the SOAR audit trail and task output, not in containers. Containers hold the case data; their artifacts are observables, not log data.",
+      "Incorrect. Container and artifact are distinct concepts with a clear parent-child relationship in SOAR's data model; treating them as interchangeable would break playbook data path references and artifact iteration logic."
+    ]
+  },
+  {
+    id: "ae-022",
+    domain: "Automation and Efficiency",
+    question: "A Splunk ES Adaptive Response action is configured with 'Run on each result' instead of 'Run once'. How does this change the behavior when a correlation search returns multiple matching events?",
+    options: [
+      "'Run on each result' invokes the action once per unique field value in the results; 'Run once' invokes the action for only the first unique field value found",
+      "'Run on each result' invokes the action once per row returned by the correlation search; 'Run once' invokes the action a single time regardless of how many results were returned",
+      "'Run on each result' requires a connected Splunk SOAR instance; 'Run once' can execute built-in ES actions without SOAR",
+      "'Run on each result' is only available for the Risk Analysis action; 'Run once' is the only mode for the Create Notable Event action"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. 'Run on each result' invokes the action for every row in the result set, not just per unique field value. Deduplication logic would need to be implemented separately if only unique values are desired.",
+      "Correct. 'Run on each result' triggers one action invocation per result row in the correlation search output — useful when you need to create a separate ticket or send a separate notification per affected entity. 'Run once' triggers a single action invocation regardless of result count, useful when the action should summarize all findings (e.g., one email listing all matched events).",
+      "Incorrect. Both 'Run on each result' and 'Run once' can execute any configured Adaptive Response action — including built-in ES actions and SOAR-based actions. The execution mode is independent of whether SOAR is connected.",
+      "Incorrect. Both execution modes are available for all Adaptive Response action types, including Risk Analysis, Create Notable Event, and third-party actions. There is no restriction binding a mode to a specific action type."
+    ]
+  },
+  {
+    id: "ae-023",
+    domain: "Automation and Efficiency",
+    question: "A SOAR playbook receives a container with five IP address artifacts. The engineer wants a threat intelligence App action to run independently for each IP. Which configuration approach causes SOAR to automatically invoke the action once per artifact?",
+    options: [
+      "Write a Python custom function that loops over the artifact list and calls the action five times sequentially",
+      "Configure the App action's input data path to reference the artifact CEF field (e.g., artifact:*.cef.destinationAddress), which causes SOAR to fan out and invoke the action once per matching artifact value",
+      "Create five separate parallel playbooks, one for each IP artifact, and trigger them from a parent playbook",
+      "Use a Format block to concatenate all five IPs into a comma-separated string for a single bulk API request"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. While a custom function can achieve iteration, it adds unnecessary complexity and is not the idiomatic SOAR approach. The built-in data path fan-out mechanism is designed precisely for this purpose.",
+      "Correct. When an App action's input data path references a wildcard artifact field (using the * glob, e.g., artifact:*.cef.destinationAddress), SOAR automatically fans out the action — creating one invocation per matching artifact value. This is SOAR's native per-artifact iteration pattern and is the recommended, most concise approach.",
+      "Incorrect. Creating five separate child playbooks for five IPs is a high-overhead pattern that does not scale with dynamic artifact counts and is not the intended mechanism for per-artifact action invocation.",
+      "Incorrect. Concatenating IPs into a single string for a bulk request only works if the threat intelligence API supports batch lookups; it does not leverage SOAR's native per-artifact fan-out and requires additional parsing logic to split the API response back into per-IP results."
+    ]
+  },
+  {
+    id: "ae-024",
+    domain: "Automation and Efficiency",
+    question: "A SOC team closes a SOAR case after resolving an incident. Which integration capability allows this status change to be reflected back in the corresponding notable event in Splunk ES Incident Review automatically?",
+    options: [
+      "The Splunk CIM add-on automatically syncs case status between SOAR and ES via the common data model",
+      "The bidirectional sync feature of the Splunk ES and SOAR integration, where SOAR updates the notable event's status and owner fields via the Splunk REST API when the container is resolved",
+      "The analyst must manually update the notable event status in ES Incident Review as a separate step",
+      "Incident Review notable event statuses are read-only system fields and cannot be updated by any external system"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The CIM add-on provides data model definitions and field normalization within Splunk; it does not perform real-time bidirectional case status synchronization between SOAR and ES.",
+      "Correct. The Splunk ES and SOAR integration supports bidirectional synchronization. When a SOAR container status is updated (e.g., closed or resolved), the SOAR Splunk app can write back to the Splunk ES notable event via the REST API — updating the notable's status field and optionally its owner and comment — keeping both systems in sync without requiring manual analyst intervention.",
+      "Incorrect. While manual updating is the fallback if the integration is not configured, the integration is specifically designed to automate this synchronization so analysts do not have to maintain both systems separately.",
+      "Incorrect. Notable event status, owner, urgency, and comment fields in Incident Review are fully writable — both through the UI and via the Splunk REST API. They are not read-only system fields."
+    ]
+  },
+
+  /* ============================================================
+     DATA ENGINEERING  (questions 10–12)
+     ============================================================ */
+  {
+    id: "deng-010",
+    domain: "Data Engineering",
+    question: "In Splunk's indexer storage architecture, what is the correct lifecycle order through which an index bucket transitions?",
+    options: [
+      "Cold → Warm → Hot → Frozen",
+      "Hot → Warm → Cold → Frozen",
+      "Hot → Cold → Warm → Archived",
+      "Warm → Hot → Frozen → Cold"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. This is the reverse of the correct order. Buckets begin as Hot (actively written), not Cold.",
+      "Correct. Splunk index buckets follow the lifecycle: Hot (actively receiving new events, stored on fastest storage) → Warm (no longer receiving writes but still searchable, on fast storage) → Cold (older data, moved to slower/cheaper storage, still searchable) → Frozen (oldest data, either deleted or archived to external storage based on configuration). This tiered lifecycle enables cost-effective storage management aligned to data access frequency.",
+      "Incorrect. There is no direct Hot → Cold transition without first going through Warm, and the lifecycle does not include a separate 'Archived' stage within Splunk's bucket management.",
+      "Incorrect. Buckets begin as Hot (not Warm) when they are first created and actively written to; there is no backward transition from Frozen or Cold back to Hot."
+    ]
+  },
+  {
+    id: "deng-011",
+    domain: "Data Engineering",
+    question: "In Splunk, three default metadata fields are assigned to every indexed event. Which statement correctly distinguishes `host`, `source`, and `sourcetype`?",
+    options: [
+      "`source` identifies the device that sent the data; `host` identifies the specific file or port input; `sourcetype` describes the Splunk index destination",
+      "`host` identifies the system that generated or forwarded the event; `source` is the specific file path, network port, or input from which the data came; `sourcetype` describes the data format and governs parsing rules",
+      "`sourcetype` identifies the Splunk index the event was written to; `host` is the analyst who ran the originating search; `source` contains the raw event content",
+      "All three fields are interchangeable within SPL searches and can substitute for each other in any filter expression"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The roles are incorrect in this option. source refers to the file/port input, not the device; host identifies the device/system; sourcetype describes data format, not the destination index.",
+      "Correct. host is the hostname of the system that generated the event (or the forwarder that sent it). source is the specific input from which the data came — such as a file path (/var/log/auth.log), a network port (UDP:514), or a scripted input name. sourcetype categorizes the data format, telling Splunk's parsing pipeline which rules (props.conf) to apply for timestamp extraction, line breaking, and field extraction.",
+      "Incorrect. The index an event is written to is tracked internally by Splunk as the `index` field, not sourcetype. The host field is the originating system hostname, not the analyst's identity.",
+      "Incorrect. host, source, and sourcetype serve fundamentally different roles and are not interchangeable. Using them interchangeably in SPL would produce incorrect filter results."
+    ]
+  },
+  {
+    id: "deng-012",
+    domain: "Data Engineering",
+    question: "A security team is onboarding a new application that outputs structured syslog messages with custom key=value pairs that are not in any existing Splunk add-on. Which configuration file and stanza type should be used to define automatic search-time field extractions for these custom key-value pairs?",
+    options: [
+      "outputs.conf — tcpout stanza",
+      "props.conf — KV_MODE or EXTRACT stanza for the sourcetype",
+      "transforms.conf — LOOKUP stanza",
+      "inputs.conf — monitor stanza with a fields override"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. outputs.conf configures where Splunk forwarders send data (indexer destinations, HEC endpoints); it has no role in field extraction or parsing.",
+      "Correct. props.conf governs all sourcetype-level parsing behavior. For key=value structured syslog, setting KV_MODE = auto or KV_MODE = multi in props.conf for the sourcetype instructs Splunk to automatically extract key=value pairs at search time. For more specific patterns, an EXTRACT stanza with a named capture group regex can be defined for precise field extraction without requiring a full transforms.conf entry.",
+      "Incorrect. LOOKUP stanzas in transforms.conf define lookup table definitions (CSV or KV store references) for field enrichment; they do not extract field values from raw event text.",
+      "Incorrect. inputs.conf monitor stanzas configure which files or directories to monitor and can set basic metadata (host, source, sourcetype, index) but cannot define field extraction logic for the event content."
+    ]
+  },
+
+  /* ============================================================
+     AUDITING AND REPORTING  (questions 10–12)
+     ============================================================ */
+  {
+    id: "ar-010",
+    domain: "Auditing and Reporting",
+    question: "A SOC manager wants to identify notable events that have been in 'In Progress' status for more than 4 hours without a status update, indicating SLA breaches. Which approach in Splunk ES best surfaces these events?",
+    options: [
+      "Filter the Forwarder Audit dashboard by high-urgency events older than 4 hours",
+      "Create a scheduled SPL search against the `notable` and `notable_updates` indexes to find events whose last status change timestamp exceeds 4 hours ago",
+      "Enable the built-in 'SLA Breach' detection in the Detection Studio Launchpad",
+      "Filter the Risk Analysis dashboard for risk objects with scores that have not changed in 4 hours"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The Forwarder Audit dashboard reports on data pipeline health and forwarder connectivity; it contains no notable event lifecycle or SLA tracking data.",
+      "Correct. Notable event creation and status changes are tracked in the notable and notable_updates indexes respectively. A scheduled SPL search can join these to calculate the elapsed time since each event's last status update, filter for events in 'In Progress' status where that elapsed time exceeds the 4-hour SLA threshold, and optionally trigger an alert or report to the manager.",
+      "Incorrect. Detection Studio Launchpad is an operational tool for detection engineers showing MITRE ATT&CK coverage and detection health; it does not contain SLA tracking functionality for analyst workflow compliance.",
+      "Incorrect. Risk Analysis tracks behavioral risk score changes for risk objects; it does not monitor the lifecycle of individual notable events or analyst response timelines."
+    ]
+  },
+  {
+    id: "ar-011",
+    domain: "Auditing and Reporting",
+    question: "A compliance officer needs a daily automated report of all critical and high urgency notable events from the previous 24 hours, delivered to a distribution list each morning. Which Splunk feature best fulfills this requirement?",
+    options: [
+      "A real-time alert configured to email the compliance officer each time a critical notable event fires",
+      "A scheduled report configured to run daily, querying the previous 24 hours, with results delivered as a PDF or CSV email attachment to the distribution list",
+      "A Glass Table dashboard published to a public URL that the compliance team bookmarks",
+      "A Splunk SOAR playbook configured to email a notable event summary every 24 hours"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. A real-time alert sends individual emails per event as they fire throughout the day — potentially hundreds of emails — rather than a consolidated daily digest. This approach does not meet the requirement for a single morning delivery.",
+      "Correct. A scheduled report (cron-scheduled to run each morning) runs its search against the previous 24-hour window, compiles all matching critical and high urgency notable events into a result set, and delivers the output as a formatted PDF or CSV email attachment to a distribution list — exactly matching the compliance requirement.",
+      "Incorrect. A Glass Table dashboard provides a visual real-time posture view but requires the compliance officer to actively navigate to it; it does not push a report automatically and does not produce an auditable document suitable for compliance records.",
+      "Incorrect. While a SOAR playbook could be constructed to perform this function, it would require custom development and additional infrastructure. The native Splunk scheduled report feature achieves this requirement directly with no custom code."
+    ]
+  },
+  {
+    id: "ar-012",
+    domain: "Auditing and Reporting",
+    question: "A Splunk administrator suspects analysts are running poorly optimized ad-hoc searches that are degrading search head performance. Which built-in Splunk capability allows the administrator to audit search activity and identify resource-intensive queries across all users?",
+    options: [
+      "The Forwarder Audit dashboard filtered by search head hostname",
+      "The _audit index combined with the Search Activity dashboard in the Splunk Monitoring Console",
+      "The Detection Studio Launchpad filtered by analyst username",
+      "The Suppression Audit dashboard sorted by most recently modified rules"
+    ],
+    correct: 1,
+    explanations: [
+      "Incorrect. The Forwarder Audit dashboard tracks data pipeline health and forwarder connectivity; it does not record search execution activity, query run times, or per-user search history.",
+      "Correct. Splunk writes audit events for every search execution to the internal _audit index, including the running user, search string, execution time, and result counts. The Search Activity dashboard in the Splunk Monitoring Console (or the _audit index queried directly) surfaces per-user search volume, slowest searches, and resource consumption — enabling administrators to identify and address poorly optimized queries.",
+      "Incorrect. Detection Studio Launchpad is scoped to correlation search and detection content management; it does not provide visibility into ad-hoc search activity by individual users.",
+      "Incorrect. The Suppression Audit dashboard tracks notable event suppression rule activity; it has no relevance to search execution performance or user search audit trails."
+    ]
   }
 
 ];
